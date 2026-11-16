@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SITE-7 — Tactical FPS</title>
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+  }
+}
+</script>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<!-- HUD -->
+<div id="hud">
+  <div id="crosshair">
+    <div class="ch-line top"></div>
+    <div class="ch-line bottom"></div>
+    <div class="ch-line left"></div>
+    <div class="ch-line right"></div>
+    <div class="ch-dot"></div>
+  </div>
+  <div id="hitmarker"><span></span><span></span><span></span><span></span></div>
+  <div id="dmgFlash"></div>
+
+  <div id="compass"></div>
+
+  <div id="topBar">
+    <div id="timerText">1:40</div>
+    <div id="roundText">ROUND 1</div>
+    <div id="scoreText">K 0 · D 0 · Rounds 0–0</div>
+  </div>
+
+  <div id="killfeed"></div>
+
+  <div id="bottomBar">
+    <div id="healthWrap">
+      <div id="healthBar"><div id="healthFill"></div></div>
+      <div id="healthText">100 HP</div>
+      <div id="armorBar"><div id="armorFill"></div></div>
+      <div id="armorText">50 ARMOR</div>
+    </div>
+    <div id="ammoWrap">
+      <div id="weaponText">VK-47 Rifle</div>
+      <div id="ammoText">30 / 120</div>
+    </div>
+  </div>
+
+  <div id="fpsText">60 FPS</div>
+  <div id="hint">TAB scoreboard · R reload · 1/2/Q weapons · P pause</div>
+  <div id="lockHint" class="hidden"></div>
+  <div id="roundBanner" class="hidden"></div>
+</div>
+
+<!-- Touch controls (shown only on touch devices) -->
+<div id="touchUI" class="hidden">
+  <div id="lookZone"></div>
+  <div id="stick"><div id="stickKnob"></div></div>
+  <div id="touchBtns">
+    <button id="btnFire" class="tbtn fire">FIRE</button>
+    <button id="btnJump" class="tbtn">JUMP</button>
+    <button id="btnReload" class="tbtn">RLD</button>
+    <button id="btnSwap" class="tbtn">SWAP</button>
+  </div>
+</div>
+
+<!-- Scoreboard -->
+<div id="scoreboard" class="hidden">
+  <h2>SCOREBOARD</h2>
+  <div id="sbBody"></div>
+  <p class="sb-note">Hold TAB to view · Release to hide</p>
+</div>
+
+<!-- Start / pause overlay -->
+<div id="overlay">
+  <div class="panel">
+    <h1>SITE-7</h1>
+    <p class="sub">Tactical FPS — You vs 8 bots · First to clear the site wins the round</p>
+    <div class="chips">
+      <span>☀️ Bright daylight map</span><span>🤖 8 smart bots</span><span>🎯 Headshots pay off</span>
+    </div>
+    <div class="controls">
+      <div><b>WASD</b> move</div>
+      <div><b>Mouse</b> look · <b>Click</b> shoot</div>
+      <div><b>Shift</b> sprint · <b>Space</b> jump</div>
+      <div><b>R</b> reload · <b>1 / 2 / Q</b> switch weapon</div>
+      <div><b>Tab</b> scoreboard · <b>P / Esc</b> pause</div>
+      <div><b>Touch</b> left stick moves, drag right side to look</div>
+    </div>
+    <p class="objective">Eliminate all 8 bots before the 100-second timer runs out.<br>
+    Bots patrol, take cover when hurt, peek out to shoot, and hunt you down once spotted —<br>
+    but they can't see you past 32 m, and they need a second to react. Use that.<br>
+    Headshots deal bonus damage. Armor absorbs half of incoming damage.</p>
+    <p id="bestLine" class="best"></p>
+    <button id="playBtn">▶ &nbsp;CLICK TO PLAY</button>
+    <button id="resumeBtn" class="hidden">▶ &nbsp;RESUME</button>
+    <h2 id="pauseTitle" class="hidden"></h2>
+    <p class="foot">Best played in Chrome / Edge / Firefox · Sound on 🔊 · No install, no account</p>
+  </div>
+</div>
+
+<!-- Round end screen -->
+<div id="endScreen" class="hidden">
+  <div class="panel">
+    <h1 id="endTitle">ROUND WON</h1>
+    <p id="endStats"></p>
+    <button id="nextRoundBtn">Next Round ▶</button>
+    <button id="restartBtn" class="secondary">Reset Match</button>
+  </div>
+</div>
+
+<script type="module" src="game.js"></script>
+</body>
+</html>
