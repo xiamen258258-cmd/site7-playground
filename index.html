@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0d1420">
 <title>SITE-7 — Tactical FPS</title>
-<link rel="stylesheet" href="style.css?v=8-20261116">
+<link rel="stylesheet" href="style.css?v=9-20261116">
 
 <style>
 html,body{margin:0;width:100%;height:100%;overflow:hidden}svg{max-width:32px;max-height:32px}#game{position:fixed;top:0;left:0;width:100%;height:100%}.hidden{display:none!important}
@@ -68,7 +68,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden}svg{max-width:32px;max
 
 <!-- Touch controls (shown only on touch devices) -->
 <div id="touchUI" class="hidden">
-  <div id="lookZone"></div>
+  <div id="lookZone"><span style="position:absolute;top:35%;left:0;right:0;text-align:center;color:rgba(255,255,255,.6);font:12px sans-serif;pointer-events:none">Drag here to AIM / 在此滑动瞄准</span></div>
   <div id="stick"><div id="stickKnob"></div></div>
   <div id="touchBtns">
     <button id="btnSwap" class="tbtn" aria-label="Switch weapon"><span class="tbtn-ico"></span><span class="tbtn-lbl">SWAP</span></button>
@@ -115,6 +115,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden}svg{max-width:32px;max
     <p class="objective">Eliminate all 8 bots before the 100-second timer runs out.<br>
     Bots patrol, take cover when hurt, peek out to shoot, and hunt you down once spotted —<br>
     but they need a second to react. Use that. Headshots deal bonus damage. Armor absorbs half of incoming damage.</p>
+    <label style="display:block;font-size:13px;margin:8px">Aim sensitivity / 瞄准灵敏度 <span id="aimSensitivityValue">60</span><input id="aimSensitivity" type="range" min="25" max="100" value="60" style="width:160px;vertical-align:middle;touch-action:auto"></label>
     <p id="bestLine" class="best"></p>
     <button id="playBtn"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l13 8-13 8z" fill="currentColor"/></svg><span>PLAY</span></button>
     <button id="resumeBtn" class="hidden"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l13 8-13 8z" fill="currentColor"/></svg><span>RESUME</span></button>
@@ -138,12 +139,12 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden}svg{max-width:32px;max
 (function () {
  var box=document.createElement('div'); box.id='bootStatus';
  box.style.cssText='position:fixed;left:12px;right:12px;top:12px;z-index:99999;padding:16px;background:#101c2e;color:white;font:16px sans-serif;border:1px solid #ffd27d;border-radius:8px';
- box.textContent='Loading SITE-7 v8... / 正在载入'; document.body.appendChild(box);
- function fail(message){box.style.display='block';box.textContent='Unable to start / 启动失败: '+message+' '; var a=document.createElement('a');a.textContent='Retry / 重试';a.style.color='#ffd27d';a.href=location.pathname+'?v=8&retry='+Date.now();box.appendChild(a);}
+ box.textContent='Loading SITE-7 v9... / 正在载入'; document.body.appendChild(box);
+ function fail(message){box.style.display='block';box.textContent='Unable to start / 启动失败: '+message+' '; var a=document.createElement('a');a.textContent='Retry / 重试';a.style.color='#ffd27d';a.href=location.pathname+'?v=9&retry='+Date.now();box.appendChild(a);}
  window.addEventListener('error',function(e){fail(e.message||'Resource failed');});
  window.addEventListener('unhandledrejection',function(){fail('Browser graphics or game initialization failed');});
  var timeout=setTimeout(function(){fail('Taking too long. Check connection or open in Safari / 载入较慢，请检查网络');},20000);
- var script=document.createElement('script');script.src='./site7-offline.js?v=8-20261116';
+ var script=document.createElement('script');script.src='./site7-offline.js?v=9-20261116';
  script.onload=function(){clearTimeout(timeout);if(window.__site7){box.style.display='none';}else{fail('WebGL game did not initialize');}};
  script.onerror=function(){clearTimeout(timeout);fail('Game file could not download');};document.body.appendChild(script);
 })();

@@ -566,6 +566,9 @@ function togglePause() {
 }
 
 // ---------- Touch controls (basic, shown only on touch devices) ----------
+let touchSensitivity = 0.006;
+const sensSlider=document.getElementById('aimSensitivity');
+sensSlider.addEventListener('input',function(){touchSensitivity=Number(this.value)/10000;document.getElementById('aimSensitivityValue').textContent=this.value;});
 const touchUI = document.getElementById('touchUI');
 if (S.isTouch) {
   document.body.classList.add('touch');
@@ -581,12 +584,18 @@ if (S.isTouch) {
     const r = stick.getBoundingClientRect();
     stickOX = r.left + r.width / 2; stickOY = r.top + r.height / 2;
   }, { passive: false });
-  lookZone.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    const t = e.changedTouches[0];
-    S.touchLook.id = t.identifier; S.touchLook.lx = t.clientX; S.touchLook.ly = t.clientY;
-  }, { passive: false });
+  // Capture eligible right-half gestures even when an overlay receives the touch.
+  // FIRE can also be dragged to aim; a second look finger never steals an active one.
+  document.addEventListener('touchstart', (e) => {
+    if (S.mode !== 'playing' || S.touchLook.id !== -1) return;
+    if (e.target.closest && e.target.closest('#stick,#btnReload,#btnSwap,#btnJump,#btnPause,#btnAudio,#btnAudioTest,input,button:not(#btnFire)')) return;
+    for (const t of e.changedTouches) {
+      if(t.clientX < innerWidth*.45) continue;
+      e.preventDefault();S.touchLook.id=t.identifier;S.touchLook.lx=t.clientX;S.touchLook.ly=t.clientY;break;
+    }
+  }, { passive:false, capture:true });
   document.addEventListener('touchmove', (e) => {
+    if (S.mode === 'playing' && (stickId !== -1 || S.touchLook.id !== -1)) e.preventDefault();
     for (const t of e.changedTouches) {
       if (t.identifier === stickId) {
         let dx = (t.clientX - stickOX) / 48, dy = (t.clientY - stickOY) / 48;
@@ -595,8 +604,8 @@ if (S.isTouch) {
         S.touchMove.x = dx; S.touchMove.y = dy;
         knob.style.transform = `translate(${dx * 34}px, ${dy * 34}px)`;
       } else if (t.identifier === S.touchLook.id) {
-        S.yaw -= (t.clientX - S.touchLook.lx) * 0.0042;
-        S.pitch -= (t.clientY - S.touchLook.ly) * 0.0042;
+        S.yaw -= (t.clientX - S.touchLook.lx) * touchSensitivity;
+        S.pitch -= (t.clientY - S.touchLook.ly) * touchSensitivity;
         S.pitch = Math.max(-1.5, Math.min(1.5, S.pitch));
         S.touchLook.lx = t.clientX; S.touchLook.ly = t.clientY;
       }
@@ -614,6 +623,7 @@ if (S.isTouch) {
     const el = document.getElementById(id);
     el.addEventListener('touchstart', (e) => { e.preventDefault(); on(); }, { passive: false });
     el.addEventListener('touchend', (e) => { e.preventDefault(); if (off) off(); }, { passive: false });
+    el.addEventListener('touchcancel', () => { if (off) off(); });
   };
   bindHold('btnFire', () => { S.firing = true; S.triggerEdge = true; }, () => { S.firing = false; S.triggerEdge = false; });
   // JUMP queues the jump instead of holding Space for 120 ms:
@@ -755,6 +765,23 @@ function shoot() {
 
   // direction with spread + recoil
   camera.getWorldDirection(_dir);
+  if (S.isTouch) {
+    // Small, line-of-sight-only assist. Never locks through walls or turns the camera.
+    let bestAngle = .055, assist = null;
+    for (const bot of S.bots) {
+      if (!bot.alive) continue;
+      const target=bot.group.position.clone().add(new THREE.Vector3(0,1.35,0));
+      const offset=target.sub(camera.position), distance=offset.length();
+      if(distance>w.range || distance<.1)continue;
+      const direction=offset.normalize(), angle=_dir.angleTo(direction);
+      if(angle>=bestAngle)continue;
+      raycaster.set(camera.position,direction);raycaster.far=distance;
+      const blockers=raycaster.intersectObjects(mapMeshes,false);
+      if(blockers.length && blockers[0].distance<distance-.4)continue;
+      bestAngle=angle;assist=direction;
+    }
+    if(assist)_dir.lerp(assist,.45).normalize();
+  }
   const spread = w.spread * S.spreadNow;
   _dir.x += (Math.random() - 0.5) * spread * 2;
   _dir.y += (Math.random() - 0.5) * spread * 2;
