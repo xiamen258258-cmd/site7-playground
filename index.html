@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0d1420">
 <title>SITE-7 — Tactical FPS</title>
 <link rel="stylesheet" href="style.css">
 <script type="importmap">
@@ -27,8 +28,9 @@
   </div>
   <div id="hitmarker"><span></span><span></span><span></span><span></span></div>
   <div id="dmgFlash"></div>
+  <div id="dmgDir" class="hidden"><div class="dir-mark"></div></div>
 
-  <div id="compass"></div>
+  <canvas id="minimap" width="168" height="112"></canvas>
 
   <div id="topBar">
     <div id="timerText">1:40</div>
@@ -40,14 +42,21 @@
 
   <div id="bottomBar">
     <div id="healthWrap">
-      <div id="healthBar"><div id="healthFill"></div></div>
-      <div id="healthText">100 HP</div>
-      <div id="armorBar"><div id="armorFill"></div></div>
-      <div id="armorText">50 ARMOR</div>
+      <div class="bar-row">
+        <span class="bar-ico hp-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="currentColor"/></svg></span>
+        <div id="healthBar"><div id="healthFill"></div></div>
+        <div id="healthText">100</div>
+      </div>
+      <div class="bar-row">
+        <span class="bar-ico ar-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5-3.5 9.3-8 11-4.5-1.7-8-6-8-11V5z" fill="currentColor"/></svg></span>
+        <div id="armorBar"><div id="armorFill"></div></div>
+        <div id="armorText">50</div>
+      </div>
     </div>
     <div id="ammoWrap">
-      <div id="weaponText">VK-47 Rifle</div>
+      <div id="weaponLine"><span id="weaponIcon"></span><span id="weaponText">VK-47 Rifle</span></div>
       <div id="ammoText">30 / 120</div>
+      <div id="magPips"></div>
     </div>
   </div>
 
@@ -55,6 +64,7 @@
   <div id="hint">TAB scoreboard · R reload · 1/2/Q weapons · P pause</div>
   <div id="lockHint" class="hidden"></div>
   <div id="roundBanner" class="hidden"></div>
+  <div id="rotateHint"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2h10a1 1 0 011 1v18a1 1 0 01-1 1H7a1 1 0 01-1-1V3a1 1 0 011-1zm2 2v14h6V4z" fill="currentColor" transform="rotate(90 12 12)"/></svg><span>Rotate your phone for the best view</span></div>
 </div>
 
 <!-- Touch controls (shown only on touch devices) -->
@@ -62,11 +72,12 @@
   <div id="lookZone"></div>
   <div id="stick"><div id="stickKnob"></div></div>
   <div id="touchBtns">
-    <button id="btnFire" class="tbtn fire">FIRE</button>
-    <button id="btnJump" class="tbtn">JUMP</button>
-    <button id="btnReload" class="tbtn">RLD</button>
-    <button id="btnSwap" class="tbtn">SWAP</button>
+    <button id="btnSwap" class="tbtn" aria-label="Switch weapon"><span class="tbtn-ico"></span><span class="tbtn-lbl">SWAP</span></button>
+    <button id="btnReload" class="tbtn" aria-label="Reload"><span class="tbtn-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V2L7 6l5 4V7a5 5 0 11-5 5H5a7 7 0 107-7z" fill="currentColor"/></svg></span><span class="tbtn-lbl">RELOAD</span></button>
+    <button id="btnJump" class="tbtn" aria-label="Jump"><span class="tbtn-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 7h-4v9h-6v-9H5z" fill="currentColor"/></svg></span><span class="tbtn-lbl">JUMP</span></button>
+    <button id="btnFire" class="tbtn fire" aria-label="Fire"><span class="tbtn-lbl">FIRE</span></button>
   </div>
+  <button id="btnPause" class="tbtn pause" aria-label="Pause"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor"/><rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor"/></svg></button>
 </div>
 
 <!-- Scoreboard -->
@@ -82,25 +93,35 @@
     <h1>SITE-7</h1>
     <p class="sub">Tactical FPS — You vs 8 bots · First to clear the site wins the round</p>
     <div class="chips">
-      <span>☀️ Bright daylight map</span><span>🤖 8 smart bots</span><span>🎯 Headshots pay off</span>
+      <span><i class="dot sun"></i>Bright daylight map</span>
+      <span><i class="dot bot"></i>8 smart bots</span>
+      <span><i class="dot hs"></i>Headshots pay off</span>
     </div>
-    <div class="controls">
+    <div id="controlsDesktop" class="controls">
       <div><b>WASD</b> move</div>
       <div><b>Mouse</b> look · <b>Click</b> shoot</div>
       <div><b>Shift</b> sprint · <b>Space</b> jump</div>
       <div><b>R</b> reload · <b>1 / 2 / Q</b> switch weapon</div>
       <div><b>Tab</b> scoreboard · <b>P / Esc</b> pause</div>
-      <div><b>Touch</b> left stick moves, drag right side to look</div>
+      <div><b>Tip</b> bots can't see past 32 m — peek, shoot, break line of sight</div>
+    </div>
+    <div id="controlsTouch" class="controls">
+      <div><b>Left stick</b> move · push far to sprint</div>
+      <div><b>Drag right side</b> look</div>
+      <div><b>FIRE</b> hold for rifle · tap for pistol</div>
+      <div><b>RELOAD / SWAP / JUMP</b> on-screen buttons</div>
+      <div><b>Pause</b> button top-right</div>
+      <div><b>Tip</b> bots can't see past 32 m — peek, shoot, break line of sight</div>
     </div>
     <p class="objective">Eliminate all 8 bots before the 100-second timer runs out.<br>
     Bots patrol, take cover when hurt, peek out to shoot, and hunt you down once spotted —<br>
-    but they can't see you past 32 m, and they need a second to react. Use that.<br>
-    Headshots deal bonus damage. Armor absorbs half of incoming damage.</p>
+    but they need a second to react. Use that. Headshots deal bonus damage. Armor absorbs half of incoming damage.</p>
     <p id="bestLine" class="best"></p>
-    <button id="playBtn">▶ &nbsp;CLICK TO PLAY</button>
-    <button id="resumeBtn" class="hidden">▶ &nbsp;RESUME</button>
+    <button id="playBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l13 8-13 8z" fill="currentColor"/></svg><span>PLAY</span></button>
+    <button id="resumeBtn" class="hidden"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l13 8-13 8z" fill="currentColor"/></svg><span>RESUME</span></button>
+    <button id="pauseRestartBtn" class="hidden secondary">Restart Round</button>
     <h2 id="pauseTitle" class="hidden"></h2>
-    <p class="foot">Best played in Chrome / Edge / Firefox · Sound on 🔊 · No install, no account</p>
+    <p class="foot">Best played in Chrome / Edge / Firefox · Sound on · No install, no account</p>
   </div>
 </div>
 
@@ -109,7 +130,7 @@
   <div class="panel">
     <h1 id="endTitle">ROUND WON</h1>
     <p id="endStats"></p>
-    <button id="nextRoundBtn">Next Round ▶</button>
+    <button id="nextRoundBtn">Next Round</button>
     <button id="restartBtn" class="secondary">Reset Match</button>
   </div>
 </div>
