@@ -610,7 +610,7 @@ if (S.isTouch) {
         S.touchLook.lx = t.clientX; S.touchLook.ly = t.clientY;
       }
     }
-  }, { passive: false });
+  }, { passive: false, capture: true });
   const endTouch = (e) => {
     for (const t of e.changedTouches) {
       if (t.identifier === stickId) { stickId = -1; S.touchMove.x = 0; S.touchMove.y = 0; knob.style.transform = 'translate(0,0)'; }
@@ -625,7 +625,7 @@ if (S.isTouch) {
     el.addEventListener('touchend', (e) => { e.preventDefault(); if (off) off(); }, { passive: false });
     el.addEventListener('touchcancel', () => { if (off) off(); });
   };
-  bindHold('btnFire', () => { S.firing = true; S.triggerEdge = true; }, () => { S.firing = false; S.triggerEdge = false; });
+  bindHold('btnFire', () => { if (S.mode !== 'playing') return; S.firing = true; S.triggerEdge = true; shoot(); }, () => { S.firing = false; S.triggerEdge = false; });
   // JUMP queues the jump instead of holding Space for 120 ms:
   // slow frames could miss a 120 ms press, a queued jump survives
   // until the next physics step (or expires after ~400 ms).
@@ -1436,6 +1436,10 @@ function animate() {
   updateTracers();
   if (S.mode === 'playing') updateHUD();
 
+  const aimDebug=document.getElementById('aimDebug');
+  const aimDebugEnabled=document.getElementById('aimDebugToggle').checked;
+  aimDebug.style.display=aimDebugEnabled?'block':'none';
+  if(aimDebugEnabled)aimDebug.textContent='yaw '+(S.yaw*180/Math.PI).toFixed(1)+'° | pitch '+(S.pitch*180/Math.PI).toFixed(1)+'° | finger '+S.touchLook.id;
   // fps meter
   fpsFrames++; fpsTime += dt;
   if (fpsTime >= 0.5) {
