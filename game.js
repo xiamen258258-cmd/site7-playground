@@ -270,7 +270,7 @@ function updateAudioUI() {
  button.setAttribute('aria-pressed', String(soundEnabled));
  const state = AC ? AC.state : 'not-created';
  hint.textContent = 'Audio: '+state+' | '+(soundEnabled?'ON':'OFF')+' | media: '+mediaState+(lastAudioError?' | '+lastAudioError:'')+(soundEnabled && state!=='running'?' / Tap SOUND or TEST':'');
- hint.style.display = 'block';
+ hint.style.display = document.getElementById('aimDebugToggle') && document.getElementById('aimDebugToggle').checked ? 'block' : 'none';
 }
 function audio() {
  if (!AC) {
