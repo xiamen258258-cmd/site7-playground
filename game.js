@@ -270,7 +270,9 @@ function updateAudioUI() {
  button.setAttribute('aria-pressed', String(soundEnabled));
  const state = AC ? AC.state : 'not-created';
  hint.textContent = 'Audio: '+state+' | '+(soundEnabled?'ON':'OFF')+' | media: '+mediaState+(lastAudioError?' | '+lastAudioError:'')+(soundEnabled && state!=='running'?' / Tap SOUND or TEST':'');
- hint.style.display = document.getElementById('aimDebugToggle') && document.getElementById('aimDebugToggle').checked ? 'block' : 'none';
+ hint.style.display = 'none';
+ const menuStatus=document.getElementById('audioMenuStatus');
+ if(menuStatus)menuStatus.textContent='Sound '+(soundEnabled?'ON':'OFF')+' · engine '+state+' · media '+mediaState+(lastAudioError?' · '+lastAudioError:'');
 }
 function audio() {
  if (!AC) {
@@ -302,7 +304,7 @@ function testSound() {
  if(promise && promise.then)promise.then(function(){mediaTestPlays++;lastAudioError='';updateAudioUI();}).catch(function(e){lastAudioError='Test '+e.name;updateAudioUI();});
  playTone(880,.15,.15);
 }
-['touchend','click','keydown'].forEach(type=>document.addEventListener(type,function(e){
+['touchstart','pointerdown','touchend','click','keydown'].forEach(type=>document.addEventListener(type,function(e){
  if(e.target && e.target.closest && e.target.closest('#btnAudio,#btnAudioTest'))return;
  unlockAudio();
 },true));
@@ -516,11 +518,13 @@ function lockPointer() {
   } catch (e) { S.lockDenied = true; }
 }
 document.getElementById('playBtn').addEventListener('click', () => {
+  unlockAudio();
   overlay.classList.add('hidden');
   startRound();
   lockPointer();
 });
 document.getElementById('resumeBtn').addEventListener('click', () => {
+  unlockAudio();
   overlay.classList.add('hidden');
   S.mode = 'playing';
   lockPointer();
@@ -625,7 +629,7 @@ if (S.isTouch) {
     el.addEventListener('touchend', (e) => { e.preventDefault(); if (off) off(); }, { passive: false });
     el.addEventListener('touchcancel', () => { if (off) off(); });
   };
-  bindHold('btnFire', () => { if (S.mode !== 'playing') return; S.firing = true; S.triggerEdge = true; shoot(); }, () => { S.firing = false; S.triggerEdge = false; });
+  bindHold('btnFire', () => { if (S.mode !== 'playing') return; unlockAudio(); S.firing = true; S.triggerEdge = true; shoot(); }, () => { S.firing = false; S.triggerEdge = false; });
   // JUMP queues the jump instead of holding Space for 120 ms:
   // slow frames could miss a 120 ms press, a queued jump survives
   // until the next physics step (or expires after ~400 ms).
