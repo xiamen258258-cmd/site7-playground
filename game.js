@@ -1,9 +1,9 @@
 // ============================================================
-//  SITE-7 v2 — single-player first-person tactical shooter
+//  SITE-7 v4 — single-player first-person tactical shooter
 //  three.js (CDN) · static files only · no build step
 //  Player vs 8 AI bots · rounds · A/B sites · hitscan weapons
-//  v2: bright daylight look, tuned bot AI, compass, armor,
-//      bullet decals, drag-look fallback, touch controls
+//  v4: portrait-safe touch layout, jump queue, bots 1.35x with
+//      orange-red bodies + cyan stripes, FPS counter opt-in (?fps=1)
 // ============================================================
 import * as THREE from 'three';
 
@@ -51,6 +51,10 @@ const S = {
   reloadEnd: 0,
   lastShot: 0,
   firing: false,
+  triggerEdge: false,      // pistol fires once per press (semi-auto)
+  jumpQueued: false,       // touch JUMP queues a jump (see updatePlayer)
+  jumpQueuedAt: 0,
+  shots: 0, hits: 0,        // accuracy stats
   kills: 0, deaths: 0, roundsWon: 0, roundsLost: 0, round: 1,
   timeLeft: CFG.roundTime,
   roundStartAt: 0,
@@ -69,10 +73,12 @@ const S = {
   isTouch: ('ontouchstart' in window) || navigator.maxTouchPoints > 0,
 };
 
+const BOT_SCALE = 1.35;   // bots are bigger and easier to read at range
+
 // ---------- Renderer / scene ----------
 const canvas = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+renderer.setPixelRatio(Math.min(devicePixelRatio, S.isTouch ? 1.5 : 1.75));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -93,7 +99,7 @@ scene.add(new THREE.HemisphereLight(0xeaf4ff, 0x9a8a76, 1.25));
 const sun = new THREE.DirectionalLight(0xfff2d8, 2.4);
 sun.position.set(28, 42, 18);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.mapSize.set(S.isTouch ? 1024 : 2048, S.isTouch ? 1024 : 2048); // lighter shadows on touch
 sun.shadow.camera.left = -45; sun.shadow.camera.right = 45;
 sun.shadow.camera.top = 45; sun.shadow.camera.bottom = -45;
 sun.shadow.camera.far = 120;
@@ -404,12 +410,12 @@ document.addEventListener('mousedown', (e) => {
   if (S.mode !== 'playing') return;
   if (e.target.closest('button') || e.target.closest('#touchUI')) return;
   S.dragging = true;
-  if (e.button === 0 && (locked || S.lockDenied || S.isTouch)) S.firing = true;
+  if (e.button === 0 && (locked || S.lockDenied || S.isTouch)) { S.firing = true; S.triggerEdge = true; }
   if (!locked && !S.lockDenied && !S.isTouch) lockPointer();
 });
 document.addEventListener('mouseup', (e) => {
   S.dragging = false;
-  if (e.button === 0) S.firing = false;
+  if (e.button === 0) { S.firing = false; S.triggerEdge = false; }
 });
 document.addEventListener('contextmenu', (e) => e.preventDefault());
 document.addEventListener('wheel', (e) => {
@@ -465,14 +471,22 @@ document.getElementById('restartBtn').addEventListener('click', () => {
   startRound();
   lockPointer();
 });
+document.getElementById('pauseRestartBtn').addEventListener('click', () => {
+  overlay.classList.add('hidden');
+  document.getElementById('pauseRestartBtn').classList.add('hidden');
+  startRound();
+  lockPointer();
+});
 
 function showPause() {
   if (S.mode !== 'playing') return;
   S.mode = 'paused';
   S.firing = false;
+  S.triggerEdge = false;
   document.getElementById('pauseTitle').textContent = 'Paused';
   document.getElementById('playBtn').classList.add('hidden');
   document.getElementById('resumeBtn').classList.remove('hidden');
+  document.getElementById('pauseRestartBtn').classList.remove('hidden');
   overlay.classList.remove('hidden');
 }
 function togglePause() {
@@ -489,6 +503,7 @@ function togglePause() {
 // ---------- Touch controls (basic, shown only on touch devices) ----------
 const touchUI = document.getElementById('touchUI');
 if (S.isTouch) {
+  document.body.classList.add('touch');
   touchUI.classList.remove('hidden');
   const stick = document.getElementById('stick');
   const knob = document.getElementById('stickKnob');
@@ -535,10 +550,14 @@ if (S.isTouch) {
     el.addEventListener('touchstart', (e) => { e.preventDefault(); on(); }, { passive: false });
     el.addEventListener('touchend', (e) => { e.preventDefault(); if (off) off(); }, { passive: false });
   };
-  bindHold('btnFire', () => { S.firing = true; }, () => { S.firing = false; });
-  bindHold('btnJump', () => { S.keys['Space'] = true; setTimeout(() => { S.keys['Space'] = false; }, 120); });
+  bindHold('btnFire', () => { S.firing = true; S.triggerEdge = true; }, () => { S.firing = false; S.triggerEdge = false; });
+  // JUMP queues the jump instead of holding Space for 120 ms:
+  // slow frames could miss a 120 ms press, a queued jump survives
+  // until the next physics step (or expires after ~400 ms).
+  bindHold('btnJump', () => { S.jumpQueued = true; S.jumpQueuedAt = performance.now(); });
   bindHold('btnReload', () => startReload());
   bindHold('btnSwap', () => switchWeapon(S.weapon === 'rifle' ? 'pistol' : 'rifle'));
+  document.getElementById('btnPause').addEventListener('click', (e) => { e.preventDefault(); togglePause(); });
 }
 
 // ============================================================
@@ -563,7 +582,8 @@ function collideAxis(p, half, height, axis, delta) {
 }
 
 function updatePlayer(dt) {
-  const sprint = S.keys['ShiftLeft'] || S.keys['ShiftRight'];
+  const stickMag = Math.hypot(S.touchMove.x, S.touchMove.y);
+  const sprint = S.keys['ShiftLeft'] || S.keys['ShiftRight'] || stickMag > 0.85; // push stick far to sprint
   const speed = sprint ? CFG.sprintSpeed : CFG.walkSpeed;
   let fx = 0, fz = 0;
   if (S.keys['KeyW']) fz -= 1;
@@ -583,6 +603,13 @@ function updatePlayer(dt) {
   S.vel.x += (mx - S.vel.x) * Math.min(1, dt * 12);
   S.vel.z += (mz - S.vel.z) * Math.min(1, dt * 12);
 
+  // Jump: keyboard Space, or a queued touch JUMP. The queue is consumed
+  // the first physics step where the player is on the ground, and
+  // expires after ~400 ms so a stale tap can't fire much later.
+  if (S.jumpQueued) {
+    if (S.onGround) { S.vel.y = CFG.jumpSpeed; S.onGround = false; S.jumpQueued = false; }
+    else if (performance.now() - S.jumpQueuedAt > 400) { S.jumpQueued = false; }
+  }
   if (S.keys['Space'] && S.onGround) { S.vel.y = CFG.jumpSpeed; S.onGround = false; }
   S.vel.y -= CFG.gravity * dt;
 
@@ -621,6 +648,7 @@ const decalGeo = new THREE.CircleGeometry(0.09, 12);
 function switchWeapon(name) {
   if (S.weapon === name || S.reloading) return;
   S.weapon = name;
+  S.triggerEdge = false;
   buildGun();
   sfx.swap();
   updateHUD();
@@ -650,9 +678,15 @@ function shoot() {
   const interval = 60000 / w.rpm;
   if (now - S.lastShot < interval) return;
   if (S.reloading) return;
+  // pistol is semi-auto: one shot per trigger press
+  if (!w.auto) {
+    if (!S.triggerEdge) return;
+    S.triggerEdge = false;
+  }
   if (S.ammo[S.weapon] <= 0) { sfx.dry(); S.lastShot = now; startReload(); return; }
   S.lastShot = now;
   S.ammo[S.weapon]--;
+  S.shots++;
 
   // direction with spread + recoil
   camera.getWorldDirection(_dir);
@@ -737,7 +771,7 @@ function updateTracers() {
 //  BOTS — patrol, spot (LOS + 32 m), react, burst fire,
 //  cover + peek, strafe, lose track -> patrol
 // ============================================================
-const BOT_COLORS = [0xff5722, 0xffc107, 0xe91e63, 0x00bcd4, 0x4caf50, 0x9c27b0, 0xff9800, 0x2196f3];
+const BOT_COLORS = [0xff3d00, 0xff6d00, 0xff1744, 0xf50057, 0xff9100, 0xd50000, 0xff5722, 0xc51162]; // saturated orange-red family
 const outlineMat = new THREE.MeshBasicMaterial({ color: 0x111111, side: THREE.BackSide });
 let botId = 0;
 
@@ -785,7 +819,13 @@ class Bot {
     gun.position.set(0.25, 1.25, -0.3);
     const arm = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.5), bodyMat);
     arm.position.set(0.25, 1.3, -0.1);
-    g.add(legL, legR, torso, head, helmet, gun, arm);
+    // contrasting cyan emissive stripe across chest and helmet — reads at 30 m
+    const stripeMat = new THREE.MeshStandardMaterial({ color: 0x00e5ff, emissive: 0x00e5ff, emissiveIntensity: 1.4 });
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.64, 0.1, 0.38), stripeMat);
+    stripe.position.y = 1.32;
+    const stripeHead = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.06, 0.36), stripeMat);
+    stripeHead.position.y = 1.78;
+    g.add(legL, legR, torso, head, helmet, gun, arm, stripe, stripeHead);
     g.traverse((o) => { if (o.isMesh) { o.castShadow = true; } });
     // dark outline shells so bots read against any background
     addOutline(torso); addOutline(head);
@@ -793,6 +833,7 @@ class Bot {
     [head, helmet].forEach((m) => { m.userData.bot = this; m.userData.part = 'head'; botParts.push(m); });
     this.meshes = { legL, legR, torso, head, gun };
     this.group = g;
+    this.group.scale.setScalar(BOT_SCALE);
     this.group.position.copy(spawn);
     scene.add(g);
 
@@ -805,7 +846,7 @@ class Bot {
     this.walkPhase = Math.random() * 6;
   }
 
-  eyePos() { return new THREE.Vector3(this.group.position.x, this.group.position.y + 1.55, this.group.position.z); }
+  eyePos() { return new THREE.Vector3(this.group.position.x, this.group.position.y + 1.55 * BOT_SCALE, this.group.position.z); }
 
   canSeePlayer() {
     const from = this.eyePos();
@@ -825,8 +866,8 @@ class Bot {
     if (d < 0.15) return true;
     const vx = (dx / d) * speed, vz = (dz / d) * speed;
     const np = p.clone();
-    collideAxis(np, 0.4, 1.8, 'x', vx * dt);
-    collideAxis(np, 0.4, 1.8, 'z', vz * dt);
+    collideAxis(np, 0.55, 2.5, 'x', vx * dt);
+    collideAxis(np, 0.55, 2.5, 'z', vz * dt);
     np.y = 0;
     p.copy(np);
     this.group.rotation.y = Math.atan2(vx, vz);
@@ -846,8 +887,8 @@ class Bot {
     const want = dist > 14 ? dir : dist < 7 ? dir.clone().negate() : new THREE.Vector3();
     const move = want.add(perp.multiplyScalar(0.8)).normalize().multiplyScalar(this.speed * 0.85);
     const np = p.clone();
-    collideAxis(np, 0.4, 1.8, 'x', move.x * dt);
-    collideAxis(np, 0.4, 1.8, 'z', move.z * dt);
+    collideAxis(np, 0.55, 2.5, 'x', move.x * dt);
+    collideAxis(np, 0.55, 2.5, 'z', move.z * dt);
     np.y = 0; p.copy(np);
     this.group.rotation.y = Math.atan2(S.pos.x - p.x, S.pos.z - p.z);
     this.walkPhase += dt * 8;
@@ -952,7 +993,11 @@ class Bot {
         if (this.burstLeft > 0) this.tryShoot(now);
       }
     }
-    // health bar colour
+    // health bar colour + visibility (sprites always face the camera;
+    // shown up to sight range 32 m, hidden when dead via die())
+    const distToPlayer = this.group.position.distanceTo(S.pos);
+    this.barBg.visible = distToPlayer <= CFG.spotDist;
+    this.barFg.visible = distToPlayer <= CFG.spotDist;
     const f = this.hp / 100;
     this.barFg.scale.x = 0.9 * f;
     this.barFg.material.color.setHSL(f * 0.33, 0.8, 0.5);
@@ -994,6 +1039,7 @@ function rayHitsPlayer(origin, dir, maxDist) {
 function damageBot(bot, dmg, isHead) {
   if (!bot.alive || S.mode !== 'playing') return;
   bot.hp -= dmg;
+  S.hits++;
   S.hitmarkAt = performance.now();
   showHitmarker(isHead);
   if (bot.hp <= 0) {
@@ -1023,6 +1069,7 @@ function damagePlayer(dmg, bot) {
   S.hp -= (dmg - absorbed);
   sfx.hurt();
   flashDamage();
+  if (bot) showDamageDirection(bot.group.position);
   if (S.hp <= 0) {
     S.hp = 0;
     S.deaths++;
@@ -1039,11 +1086,14 @@ function damagePlayer(dmg, bot) {
 const $ = (id) => document.getElementById(id);
 const healthFill = $('healthFill'), healthText = $('healthText'),
   armorFill = $('armorFill'), armorText = $('armorText'),
-  ammoText = $('ammoText'), weaponText = $('weaponText'),
+  ammoText = $('ammoText'), weaponText = $('weaponText'), weaponIcon = $('weaponIcon'),
+  magPips = $('magPips'),
   timerText = $('timerText'), scoreText = $('scoreText'),
   killfeed = $('killfeed'), crosshair = $('crosshair'), hitmarker = $('hitmarker'),
-  dmgFlash = $('dmgFlash'), fpsText = $('fpsText'), roundText = $('roundText'),
-  compass = $('compass'), roundBanner = $('roundBanner');
+  dmgFlash = $('dmgFlash'), dmgDir = $('dmgDir'), fpsText = $('fpsText'), roundText = $('roundText'),
+  minimap = $('minimap'), roundBanner = $('roundBanner');
+const mmCtx = minimap ? minimap.getContext('2d') : null;
+let lastMinimap = 0;
 
 function updateHUD() {
   const w = WEAPONS[S.weapon];
@@ -1054,6 +1104,14 @@ function updateHUD() {
   armorText.textContent = Math.ceil(Math.max(0, S.armor)) + ' ARMOR';
   ammoText.textContent = S.reloading ? '-- / --' : `${S.ammo[S.weapon]} / ${S.reserve[S.weapon]}`;
   weaponText.textContent = w.name + (S.reloading ? '  — RELOADING —' : '');
+  weaponIcon.innerHTML = ICONS[S.weapon];
+  updateSwapBtn();
+  // magazine pips: 10 segments showing mag fraction
+  const segs = 10;
+  const filled = Math.round((S.ammo[S.weapon] / w.mag) * segs);
+  let pips = '';
+  for (let i = 0; i < segs; i++) pips += `<span class="pip${i < filled ? ' on' : ''}"></span>`;
+  magPips.innerHTML = pips;
   scoreText.textContent = `K ${S.kills} · D ${S.deaths} · Rounds ${S.roundsWon}–${S.roundsLost}`;
   roundText.textContent = `ROUND ${S.round}`;
   const t = Math.max(0, Math.ceil(S.timeLeft));
@@ -1062,34 +1120,83 @@ function updateHUD() {
   // crosshair spread
   const gap = 6 + WEAPONS[S.weapon].spread * S.spreadNow * 900;
   crosshair.style.setProperty('--gap', gap.toFixed(1) + 'px');
-  updateCompass();
+  const nowMs = performance.now();
+  if (mmCtx && nowMs - lastMinimap > 150) { lastMinimap = nowMs; drawMinimap(); }
 }
 
-// Compass: bearing of N/E/S/W + A/B sites relative to where you look
-function compassMarker(label, tx, tz, cls) {
-  const dx = tx - S.pos.x, dz = tz - S.pos.z;
+// Weapon icons (inline SVG, no emoji)
+const ICONS = {
+  rifle: '<svg viewBox="0 0 64 24" aria-hidden="true"><path d="M2 9h34l3-4h8l2 4h9l4 3-4 3h-9l-2 3H10l-2-3H2l-1-3z" fill="currentColor"/><rect x="34" y="15" width="5" height="8" rx="1" fill="currentColor"/></svg>',
+  pistol: '<svg viewBox="0 0 32 24" aria-hidden="true"><path d="M2 5h26l2 2v4H14l-2 8H6l2-8H2z" fill="currentColor"/></svg>',
+};
+function updateSwapBtn() {
+  const b = $('btnSwap');
+  if (!b) return;
+  b.innerHTML = `<span class="tbtn-ico">${ICONS[S.weapon]}</span><span class="tbtn-lbl">SWAP</span>`;
+}
+
+// Minimap: top-down radar drawn on a 2D canvas
+function drawMinimap() {
+  const W = minimap.width, H = minimap.height;
+  const sx = W / 60, sy = H / 40;
+  const X = (x) => (x + 30) * sx;
+  const Y = (z) => (z + 20) * sy;
+  mmCtx.clearRect(0, 0, W, H);
+  mmCtx.fillStyle = 'rgba(8,14,24,0.72)';
+  mmCtx.fillRect(0, 0, W, H);
+  // site zones
+  mmCtx.fillStyle = 'rgba(46,125,50,0.4)';
+  mmCtx.fillRect(X(-28), Y(-17), 12 * sx, 10 * sy);
+  mmCtx.fillStyle = 'rgba(192,57,43,0.4)';
+  mmCtx.fillRect(X(16), Y(7), 12 * sx, 10 * sy);
+  // walls / crates from colliders
+  mmCtx.fillStyle = 'rgba(160,175,195,0.85)';
+  for (const c of colliders) {
+    mmCtx.fillRect(X(c.min.x), Y(c.min.z), (c.max.x - c.min.x) * sx, (c.max.z - c.min.z) * sy);
+  }
+  // site letters
+  mmCtx.fillStyle = '#7dff8a'; mmCtx.font = 'bold 11px sans-serif'; mmCtx.textAlign = 'center';
+  mmCtx.fillText('A', X(-22), Y(-12) + 4);
+  mmCtx.fillStyle = '#ff8a7d';
+  mmCtx.fillText('B', X(22), Y(12) + 4);
+  // bots as team-colored dots
+  for (const b of S.bots) {
+    if (!b.alive) continue;
+    mmCtx.fillStyle = '#' + BOT_COLORS[b.id % BOT_COLORS.length].toString(16).padStart(6, '0');
+    mmCtx.beginPath();
+    mmCtx.arc(X(b.group.position.x), Y(b.group.position.z), 3.2, 0, 7);
+    mmCtx.fill();
+  }
+  // player arrow
+  const px = X(S.pos.x), py = Y(S.pos.z);
+  const fdx = -Math.sin(S.yaw), fdz = -Math.cos(S.yaw);
+  mmCtx.save();
+  mmCtx.translate(px, py);
+  mmCtx.rotate(Math.atan2(fdz, fdx) + Math.PI / 2);
+  mmCtx.fillStyle = '#ffffff';
+  mmCtx.beginPath();
+  mmCtx.moveTo(0, -6); mmCtx.lineTo(4.5, 5); mmCtx.lineTo(-4.5, 5); mmCtx.closePath();
+  mmCtx.fill();
+  mmCtx.restore();
+}
+
+// Damage direction indicator: red chevron toward the attacker
+let dmgDirTimer = 0;
+function showDamageDirection(fromPos) {
+  if (!dmgDir) return;
+  const dx = fromPos.x - S.pos.x, dz = fromPos.z - S.pos.z;
   const fx = -Math.sin(S.yaw), fz = -Math.cos(S.yaw);
   const len = Math.hypot(dx, dz) || 1;
-  const txN = dx / len, tzN = dz / len;
-  const dot = fx * txN + fz * tzN;
-  const cross = fx * tzN - fz * txN;
-  const rel = Math.atan2(cross, dot); // 0 = straight ahead, + = right
-  const maxA = Math.PI * 0.45;
-  if (Math.abs(rel) > maxA) return '';
-  const x = 50 + (rel / maxA) * 48;
-  return `<span class="cmp-mark ${cls}" style="left:${x.toFixed(1)}%">${label}</span>`;
-}
-function updateCompass() {
-  const N = new THREE.Vector3(S.pos.x, 0, S.pos.z - 10);
-  const E = new THREE.Vector3(S.pos.x + 10, 0, S.pos.z);
-  const Sv = new THREE.Vector3(S.pos.x, 0, S.pos.z + 10);
-  const W = new THREE.Vector3(S.pos.x - 10, 0, S.pos.z);
-  compass.innerHTML =
-    compassMarker('N', N.x, N.z, 'card') + compassMarker('E', E.x, E.z, 'card') +
-    compassMarker('S', Sv.x, Sv.z, 'card') + compassMarker('W', W.x, W.z, 'card') +
-    compassMarker('A', SITE_A.x, SITE_A.z, 'site-a') +
-    compassMarker('B', SITE_B.x, SITE_B.z, 'site-b') +
-    '<span class="cmp-center">▲</span>';
+  const dot = fx * (dx / len) + fz * (dz / len);
+  const cross = fx * (dz / len) - fz * (dx / len);
+  const rel = Math.atan2(cross, dot); // 0 = ahead, + = right
+  dmgDir.style.transform = `translate(-50%,-50%) rotate(${rel}rad)`;
+  dmgDir.classList.remove('hidden');
+  dmgDir.classList.remove('anim');
+  void dmgDir.offsetWidth;
+  dmgDir.classList.add('anim');
+  clearTimeout(dmgDirTimer);
+  dmgDirTimer = setTimeout(() => dmgDir.classList.add('hidden'), 900);
 }
 
 function addKillfeed(text) {
@@ -1164,6 +1271,7 @@ function startRound() {
   buildGun();
   S.reloading = false;
   S.kills = 0;
+  S.shots = 0; S.hits = 0;
   S.timeLeft = CFG.roundTime;
   S.roundStartAt = performance.now();
   killfeed.innerHTML = '';
@@ -1186,8 +1294,11 @@ function endRound(won) {
   $('endTitle').textContent = won ? 'ROUND WON' : 'ROUND LOST';
   $('endTitle').style.color = won ? '#37d67a' : '#e5484d';
   const alive = S.bots.filter((b) => b.alive).length;
+  const acc = S.shots > 0 ? Math.round((S.hits / S.shots) * 100) + '%' : '—';
+  const used = Math.round(CFG.roundTime - S.timeLeft);
   $('endStats').innerHTML =
     `Round ${S.round} · Kills ${S.kills} · Bots remaining ${alive}<br>` +
+    `Accuracy ${acc} · Time used ${used}s<br>` +
     `Score — You ${S.roundsWon} : ${S.roundsLost} Bots`;
   $('nextRoundBtn').textContent = won ? 'Next Round ▶' : 'Retry Round ↻';
   S.round++;
@@ -1223,7 +1334,7 @@ function animate() {
     if (S.timeLeft <= 0) { S.timeLeft = 0; endRound(false); }
     if (S.reloading && now >= S.reloadEnd) finishReload();
     updatePlayer(dt);
-    if (S.firing) { shoot(); if (!WEAPONS[S.weapon].auto) S.firing = false; }
+    if (S.firing) shoot();
     for (const b of S.bots) b.update(dt, now);
     updateAimHot(now);
   } else if (S.mode === 'roundEnd') {
@@ -1248,6 +1359,14 @@ try {
   const best = parseInt(localStorage.getItem('site7_best_rounds') || '0', 10);
   if (best > 0) $('bestLine').textContent = `Best match so far: ${best} round${best === 1 ? '' : 's'} won`;
 } catch (e) { /* storage unavailable */ }
+// FPS counter: hidden by default on every device; shown only on desktop
+// with ?fps=1 in the URL. (Touch devices never show it — see style.css.)
+if (S.isTouch || new URLSearchParams(location.search).get('fps') !== '1') {
+  $('fpsText').classList.add('hidden');
+}
+// Rotate hint is a gentle nudge, not permanent UI — fade it after 6 s.
+setTimeout(() => { const rh = $('rotateHint'); if (rh) rh.classList.add('fade-out'); }, 6000);
+
 updateHUD();
 animate();
 
