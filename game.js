@@ -249,11 +249,52 @@ const SITE_B = new THREE.Vector3(22, 0, 12);
 //  AUDIO — all synthesized with WebAudio, no assets
 // ============================================================
 let AC = null;
+let soundEnabled = true;
+let audioUnlocks = 0;
+function updateAudioUI() {
+  const button = document.getElementById('btnAudio');
+  const hint = document.getElementById('audioHint');
+  if (!button || !hint) return;
+  button.textContent = soundEnabled ? 'SOUND ON' : 'SOUND OFF';
+  button.setAttribute('aria-pressed', String(soundEnabled));
+  hint.textContent = !soundEnabled ? 'Sound muted / 音效已关闭' : (!AC || AC.state !== 'running') ? 'Tap SOUND to enable audio / 点SOUND启用音效' : 'No sound? Check volume and iPhone Silent Mode / 无声请检查音量与静音开关';
+  hint.style.display = !soundEnabled || !AC || AC.state !== 'running' ? 'block' : 'none';
+}
 function audio() {
-  if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
-  if (AC.state === 'suspended') AC.resume();
+  if (!AC) {
+    const Context = window.AudioContext || window.webkitAudioContext;
+    if (!Context) throw new Error('WebAudio unavailable');
+    AC = new Context();
+    AC.addEventListener('statechange', updateAudioUI);
+  }
   return AC;
 }
+function unlockAudio() {
+  if (!soundEnabled) return;
+  try {
+    const ac = audio();
+    if (ac.state !== 'running') { const promise = ac.resume(); if (promise && promise.then) promise.then(updateAudioUI).catch(updateAudioUI); }
+    const source = ac.createBufferSource();
+    source.buffer = ac.createBuffer(1, 1, ac.sampleRate);
+    source.connect(ac.destination); source.start(0);
+    audioUnlocks++;
+  } catch (e) { /* a visible hint stays until sound is available */ }
+  updateAudioUI();
+}
+// iOS must unlock audio inside a real completed user gesture, not the frame loop.
+['touchend', 'click', 'keydown'].forEach(type => document.addEventListener(type, function(e) {
+  if (e.target && e.target.closest && e.target.closest('#btnAudio')) return;
+  unlockAudio();
+}, true));
+document.addEventListener('visibilitychange', function() { if (!document.hidden) unlockAudio(); });
+document.getElementById('btnAudio').addEventListener('click', function(e) {
+  e.stopPropagation(); soundEnabled = !soundEnabled;
+  if (soundEnabled) { unlockAudio(); playTone(660, .12, .12); }
+  else if (AC) AC.suspend().catch(function() {});
+  updateAudioUI();
+  if (soundEnabled) document.getElementById('audioHint').style.display = 'block';
+});
+updateAudioUI();
 function noiseBuffer(ac, dur) {
   const b = ac.createBuffer(1, ac.sampleRate * dur, ac.sampleRate);
   const d = b.getChannelData(0);
@@ -261,6 +302,7 @@ function noiseBuffer(ac, dur) {
   return b;
 }
 function playNoise(dur, filterFreq, gain, type = 'lowpass', when = 0) {
+  if (!soundEnabled) return;
   try {
     const ac = audio();
     const src = ac.createBufferSource(); src.buffer = noiseBuffer(ac, dur);
@@ -273,6 +315,7 @@ function playNoise(dur, filterFreq, gain, type = 'lowpass', when = 0) {
   } catch (e) { /* audio unavailable */ }
 }
 function playTone(freq, dur, gain, type = 'sine', when = 0, slideTo = 0) {
+  if (!soundEnabled) return;
   try {
     const ac = audio();
     const o = ac.createOscillator(); o.type = type; o.frequency.setValueAtTime(freq, ac.currentTime + when);
@@ -443,6 +486,7 @@ addEventListener('resize', () => {
 });
 
 function lockPointer() {
+  unlockAudio();
   if (S.isTouch) return; // touch uses drag-look
   audio();
   try {
@@ -1371,5 +1415,5 @@ updateHUD();
 animate();
 
 // Debug handle (harmless in production; used by automated smoke tests)
-window.__site7 = { S, WEAPONS, CFG, startRound, endRound, damageBot, damagePlayer, spawnBots };
+window.__site7 = { audioStatus: () => ({ state: AC ? AC.state : "not-created", enabled: soundEnabled, unlocks: audioUnlocks }), S, WEAPONS, CFG, startRound, endRound, damageBot, damagePlayer, spawnBots };
 
