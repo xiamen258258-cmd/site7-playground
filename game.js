@@ -5,7 +5,7 @@
 //  v4: portrait-safe touch layout, jump queue, bots 1.35x with
 //      orange-red bodies + cyan stripes, FPS counter opt-in (?fps=1)
 // ============================================================
-import * as THREE from 'three';
+import * as THREE from './three.module.js';
 
 // ---------- Config ----------
 const CFG = {
@@ -77,10 +77,10 @@ const BOT_SCALE = 1.35;   // bots are bigger and easier to read at range
 
 // ---------- Renderer / scene ----------
 const canvas = document.getElementById('game');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio, S.isTouch ? 1.5 : 1.75));
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: !S.isTouch, powerPreference: 'default' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, S.isTouch ? 1 : 1.75));
 renderer.setSize(innerWidth, innerHeight);
-renderer.shadowMap.enabled = true;
+renderer.shadowMap.enabled = !S.isTouch;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -1372,3 +1372,4 @@ animate();
 
 // Debug handle (harmless in production; used by automated smoke tests)
 window.__site7 = { S, WEAPONS, CFG, startRound, endRound, damageBot, damagePlayer, spawnBots };
+

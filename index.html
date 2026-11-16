@@ -5,15 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0d1420">
 <title>SITE-7 — Tactical FPS</title>
-<link rel="stylesheet" href="style.css">
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
-  }
-}
-</script>
-</head>
+<link rel="stylesheet" href="style.css?v=6-20261116">
+
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden}svg{max-width:32px;max-height:32px}#game{position:fixed;top:0;left:0;width:100%;height:100%}.hidden{display:none!important}
+</style></head>
 <body>
 <canvas id="game"></canvas>
 
@@ -43,12 +39,12 @@
   <div id="bottomBar">
     <div id="healthWrap">
       <div class="bar-row">
-        <span class="bar-ico hp-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="currentColor"/></svg></span>
+        <span class="bar-ico hp-ico"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="currentColor"/></svg></span>
         <div id="healthBar"><div id="healthFill"></div></div>
         <div id="healthText">100</div>
       </div>
       <div class="bar-row">
-        <span class="bar-ico ar-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5-3.5 9.3-8 11-4.5-1.7-8-6-8-11V5z" fill="currentColor"/></svg></span>
+        <span class="bar-ico ar-ico"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5-3.5 9.3-8 11-4.5-1.7-8-6-8-11V5z" fill="currentColor"/></svg></span>
         <div id="armorBar"><div id="armorFill"></div></div>
         <div id="armorText">50</div>
       </div>
@@ -64,7 +60,7 @@
   <div id="hint">TAB scoreboard · R reload · 1/2/Q weapons · P pause</div>
   <div id="lockHint" class="hidden"></div>
   <div id="roundBanner" class="hidden"></div>
-  <div id="rotateHint"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2h10a1 1 0 011 1v18a1 1 0 01-1 1H7a1 1 0 01-1-1V3a1 1 0 011-1zm2 2v14h6V4z" fill="currentColor" transform="rotate(90 12 12)"/></svg><span>Rotate your phone for the best view</span></div>
+  <div id="rotateHint"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2h10a1 1 0 011 1v18a1 1 0 01-1 1H7a1 1 0 01-1-1V3a1 1 0 011-1zm2 2v14h6V4z" fill="currentColor" transform="rotate(90 12 12)"/></svg><span>Rotate your phone for the best view</span></div>
 </div>
 
 <!-- Touch controls (shown only on touch devices) -->
@@ -73,11 +69,11 @@
   <div id="stick"><div id="stickKnob"></div></div>
   <div id="touchBtns">
     <button id="btnSwap" class="tbtn" aria-label="Switch weapon"><span class="tbtn-ico"></span><span class="tbtn-lbl">SWAP</span></button>
-    <button id="btnReload" class="tbtn" aria-label="Reload"><span class="tbtn-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V2L7 6l5 4V7a5 5 0 11-5 5H5a7 7 0 107-7z" fill="currentColor"/></svg></span><span class="tbtn-lbl">RELOAD</span></button>
-    <button id="btnJump" class="tbtn" aria-label="Jump"><span class="tbtn-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 7h-4v9h-6v-9H5z" fill="currentColor"/></svg></span><span class="tbtn-lbl">JUMP</span></button>
+    <button id="btnReload" class="tbtn" aria-label="Reload"><span class="tbtn-ico"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V2L7 6l5 4V7a5 5 0 11-5 5H5a7 7 0 107-7z" fill="currentColor"/></svg></span><span class="tbtn-lbl">RELOAD</span></button>
+    <button id="btnJump" class="tbtn" aria-label="Jump"><span class="tbtn-ico"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 7h-4v9h-6v-9H5z" fill="currentColor"/></svg></span><span class="tbtn-lbl">JUMP</span></button>
     <button id="btnFire" class="tbtn fire" aria-label="Fire"><span class="tbtn-lbl">FIRE</span></button>
   </div>
-  <button id="btnPause" class="tbtn pause" aria-label="Pause"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor"/><rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor"/></svg></button>
+  <button id="btnPause" class="tbtn pause" aria-label="Pause"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor"/><rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor"/></svg></button>
 </div>
 
 <!-- Scoreboard -->
@@ -117,8 +113,8 @@
     Bots patrol, take cover when hurt, peek out to shoot, and hunt you down once spotted —<br>
     but they need a second to react. Use that. Headshots deal bonus damage. Armor absorbs half of incoming damage.</p>
     <p id="bestLine" class="best"></p>
-    <button id="playBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l13 8-13 8z" fill="currentColor"/></svg><span>PLAY</span></button>
-    <button id="resumeBtn" class="hidden"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l13 8-13 8z" fill="currentColor"/></svg><span>RESUME</span></button>
+    <button id="playBtn"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l13 8-13 8z" fill="currentColor"/></svg><span>PLAY</span></button>
+    <button id="resumeBtn" class="hidden"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l13 8-13 8z" fill="currentColor"/></svg><span>RESUME</span></button>
     <button id="pauseRestartBtn" class="hidden secondary">Restart Round</button>
     <h2 id="pauseTitle" class="hidden"></h2>
     <p class="foot">Best played in Chrome / Edge / Firefox · Sound on · No install, no account</p>
@@ -135,6 +131,20 @@
   </div>
 </div>
 
-<script type="module" src="game.js"></script>
+<script>
+(function () {
+ var box=document.createElement('div'); box.id='bootStatus';
+ box.style.cssText='position:fixed;left:12px;right:12px;top:12px;z-index:99999;padding:16px;background:#101c2e;color:white;font:16px sans-serif;border:1px solid #ffd27d;border-radius:8px';
+ box.textContent='Loading SITE-7 v6... / 正在载入'; document.body.appendChild(box);
+ function fail(message){box.style.display='block';box.textContent='Unable to start / 启动失败: '+message+' '; var a=document.createElement('a');a.textContent='Retry / 重试';a.style.color='#ffd27d';a.href=location.pathname+'?v=6&retry='+Date.now();box.appendChild(a);}
+ window.addEventListener('error',function(e){fail(e.message||'Resource failed');});
+ window.addEventListener('unhandledrejection',function(){fail('Browser graphics or game initialization failed');});
+ var timeout=setTimeout(function(){fail('Taking too long. Check connection or open in Safari / 载入较慢，请检查网络');},20000);
+ var script=document.createElement('script');script.src='./site7-offline.js?v=6-20261116';
+ script.onload=function(){clearTimeout(timeout);if(window.__site7){box.style.display='none';}else{fail('WebGL game did not initialize');}};
+ script.onerror=function(){clearTimeout(timeout);fail('Game file could not download');};document.body.appendChild(script);
+})();
+</script>
 </body>
 </html>
+
